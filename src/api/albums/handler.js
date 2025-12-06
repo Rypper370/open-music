@@ -1,115 +1,68 @@
-const { AlbumValidator } = require('../../validator/music');
+// const InvariantError = require('../../exceptions/InvariantError');
+// const NotFoundError = require('../../exceptions/NotFoundError');
 
 class AlbumHandler {
-  constructor(service) {
+  constructor(service, validator, songService) {
     this._service = service;
+    this._validator = validator;
+    this._songService = songService;
+
+    this.postAlbumHandler = this.postAlbumHandler.bind(this);
+    this.getAlbumByIdHandler = this.getAlbumByIdHandler.bind(this);
+    this.putAlbumByIdHandler = this.putAlbumByIdHandler.bind(this);
+    this.deleteAlbumByIdHandler = this.deleteAlbumByIdHandler.bind(this);
   }
 
   async postAlbumHandler(request, h) {
-    try {
-      AlbumValidator.validateAlbumPayload(request.payload);
+    this._validator.validateAlbumPayload(request.payload);
+    const albumId = await this._service.addAlbum(request.payload);
 
-      const albumId = await this._service.addAlbum(request.payload);
+    const response = h.response({
+      status: 'success',
+      data: {
+        albumId,
+      },
+    });
+    response.code(201);
+    return response;
+  }
 
-      return h.response({
-        status: 'success',
-        data: {
-          albumId,
+  async getAlbumByIdHandler(request) {
+    const { id } = request.params;
+    const album = await this._service.getAlbumById(id);
+    const songs = await this._songService.getSongsByAlbumId(id);
+
+    return {
+      status: 'success',
+      data: {
+        album: {
+          ...album,
+          songs,
         },
-      }).code(201);
-    } catch (error) {
-      if (error.statusCode) {
-        return h.response({
-          status: 'fail',
-          message: error.message,
-        }).code(error.statusCode);
-      }
-
-      return h.response({
-        status: 'error',
-        message: 'Terjadi kesalahan pada server',
-      }).code(500);
-    }
+      },
+    };
   }
 
-  async getAlbumByIdHandler(request, h) {
-    try {
-      const { id } = request.params;
-      const album = await this._service.getAlbumById(id);
-      const songs = await this._service.getSongsByAlbumId(id);
+  async putAlbumByIdHandler(request) {
+    this._validator.validateAlbumPayload(request.payload);
+    const { id } = request.params;
 
-      return h.response({
-        status: 'success',
-        data: {
-          album: {
-            ...album,
-            songs,
-          },
-        },
-      }).code(200);
-    } catch (error) {
-      if (error.statusCode) {
-        return h.response({
-          status: 'fail',
-          message: error.message,
-        }).code(error.statusCode);
-      }
+    await this._service.editAlbumById(id, request.payload);
 
-      return h.response({
-        status: 'error',
-        message: 'Terjadi kesalahan pada server',
-      }).code(500);
-    }
+    return {
+      status: 'success',
+      message: 'Album berhasil diperbarui',
+    };
   }
 
-  async putAlbumByIdHandler(request, h) {
-    try {
-      const { id } = request.params;
-      AlbumValidator.validateAlbumPayload(request.payload);
+  async deleteAlbumByIdHandler(request) {
+    const { id } = request.params;
+    await this._service.deleteAlbumById(id);
 
-      await this._service.editAlbumById(id, request.payload);
-
-      return h.response({
-        status: 'success',
-        message: 'Album berhasil diperbarui',
-      }).code(200);
-    } catch (error) {
-      if (error.statusCode) {
-        return h.response({
-          status: 'fail',
-          message: error.message,
-        }).code(error.statusCode);
-      }
-
-      return h.response({
-        status: 'error',
-        message: 'Terjadi kesalahan pada server',
-      }).code(500);
-    }
-  }
-
-  async deleteAlbumByIdHandler(request, h) {
-    try {
-      const { id } = request.params;
-      await this._service.deleteAlbumById(id);
-
-      return h.response({
-        status: 'success',
-        message: 'Album berhasil dihapus',
-      }).code(200);
-    } catch (error) {
-      if (error.statusCode) {
-        return h.response({
-          status: 'fail',
-          message: error.message,
-        }).code(error.statusCode);
-      }
-
-      return h.response({
-        status: 'error',
-        message: 'Terjadi kesalahan pada server',
-      }).code(500);
-    }
+    return {
+      status: 'success',
+      message: 'Album berhasil dihapus',
+    };
   }
 }
 
